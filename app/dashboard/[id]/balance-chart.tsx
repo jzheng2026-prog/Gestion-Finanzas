@@ -73,7 +73,7 @@ export function BalanceChart({ movimientos }: { movimientos: Movimiento[] }) {
               borderRadius: 0,
               fontSize: 13,
             }}
-            formatter={(value: number) => [`${value.toFixed(2)} €`, 'Balance']}
+            formatter={(value) => [`${Number(value).toFixed(2)} €`, 'Balance']}
           />
           <Area
             type="monotone"

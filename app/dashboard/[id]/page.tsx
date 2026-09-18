@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { MovimientoForm } from './movimiento-form'
 import { TransferirForm } from '../transferir-form'
-import { MovimientoItem } from './movimiento-item'
+import { Historial } from './historial'
 import { BalanceChart } from './balance-chart'
 
 export default async function ProyectoPage({
@@ -86,16 +86,7 @@ export default async function ProyectoPage({
         Historial
       </h2>
 
-      <div className="divide-y divide-border">
-        {movimientos?.map((m) => (
-          <MovimientoItem key={m.id} movimiento={m} />
-        ))}
-        {movimientos?.length === 0 && (
-          <p className="py-4 text-muted-foreground">
-            Sin movimientos todavía.
-          </p>
-        )}
-      </div>
+      <Historial movimientos={movimientos ?? []} nombreProyecto={proyecto.nombre} />
     </div>
   )
 }

@@ -26,14 +26,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CATEGORIAS } from '../categorias'
 
-
-type Movimiento = {
+  type Movimiento = {
   id: string
   tipo: 'ingreso' | 'retiro'
   monto: number
   nota: string | null
   fecha: string
+  categoria: string | null
 }
 
 export function MovimientoItem({ movimiento }: { movimiento: Movimiento }) {
@@ -42,6 +43,7 @@ export function MovimientoItem({ movimiento }: { movimiento: Movimiento }) {
   const [tipo, setTipo] = useState(movimiento.tipo)
   const [monto, setMonto] = useState(movimiento.monto.toString())
   const [nota, setNota] = useState(movimiento.nota ?? '')
+  const [categoria, setCategoria] = useState(movimiento.categoria ?? '')
   const [fecha, setFecha] = useState(() => {
     const d = new Date(movimiento.fecha)
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
@@ -64,6 +66,7 @@ export function MovimientoItem({ movimiento }: { movimiento: Movimiento }) {
         monto: parseFloat(monto),
         nota: nota || null,
         fecha: new Date(fecha).toISOString(),
+        categoria: categoria || null,
       })
       .eq('id', movimiento.id)
 
@@ -94,9 +97,16 @@ export function MovimientoItem({ movimiento }: { movimiento: Movimiento }) {
         <p className="text-sm font-medium">
           {movimiento.tipo === 'ingreso' ? 'Ingreso' : 'Retiro'}
         </p>
-        {movimiento.nota && (
-          <p className="text-sm text-muted-foreground">{movimiento.nota}</p>
-        )}
+        <div className="flex items-center gap-2">
+          {movimiento.categoria && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5">
+              {movimiento.categoria}
+            </span>
+          )}
+          {movimiento.nota && (
+            <p className="text-sm text-muted-foreground">{movimiento.nota}</p>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
           {new Date(movimiento.fecha).toLocaleString('es-ES')}
         </p>

@@ -17,12 +17,14 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CATEGORIAS } from './categorias'
 
 export function MovimientoGeneralForm() {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'ingreso' | 'retiro'>('ingreso')
   const [monto, setMonto] = useState('')
   const [nota, setNota] = useState('')
+  const [categoria, setCategoria] = useState('')
   const [fecha, setFecha] = useState(() => {
     const now = new Date()
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
@@ -55,6 +57,7 @@ export function MovimientoGeneralForm() {
       monto: parseFloat(monto),
       nota: nota || null,
       fecha: new Date(fecha).toISOString(),
+      categoria: categoria || null,
     })
 
     if (error) {
@@ -127,6 +130,22 @@ export function MovimientoGeneralForm() {
               onChange={(e) => setFecha(e.target.value)}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="categoria">Categoría (opcional)</Label>
+            <select
+              id="categoria"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className="w-full border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Sin categoría</option>
+              {CATEGORIAS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="nota-general">Nota (opcional)</Label>
