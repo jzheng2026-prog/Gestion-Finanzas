@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -43,26 +45,6 @@ export default function LoginPage() {
     router.refresh()
   }
 
-  async function handleSignUp(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
-    }
-
-    setError('Revisa tu email para confirmar la cuenta.')
-    setLoading(false)
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-sm">
@@ -71,7 +53,7 @@ export default function LoginPage() {
           Ahorra por proyectos, a tu ritmo.
         </p>
 
-        <form className="mt-8 space-y-5">
+        <form onSubmit={handleLogin} className="mt-8 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -94,17 +76,16 @@ export default function LoginPage() {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-col gap-2 pt-2">
-            <Button onClick={handleLogin} disabled={loading} type="submit">
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Iniciar sesión
             </Button>
-            <Button
-              onClick={handleSignUp}
-              disabled={loading}
-              variant="outline"
-              type="button"
+            <Link
+              href="/signup"
+              className="text-center text-sm text-muted-foreground hover:text-foreground"
             >
-              Crear cuenta
-            </Button>
+              ¿No tienes cuenta? Crea una
+            </Link>
           </div>
         </form>
       </div>

@@ -18,6 +18,16 @@ const workSans = Work_Sans({
 export const metadata: Metadata = {
   title: "Finanzas",
   description: "Ahorro por proyectos personales",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Finanzas",
+  },
+};
+
+export const viewport = {
+  themeColor: "#1F6F54",
 };
 
 export default function RootLayout({
