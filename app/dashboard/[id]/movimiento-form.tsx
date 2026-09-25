@@ -3,10 +3,16 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Loader2, Plus } from 'lucide-react'
+import { useCategorias } from '../categorias-context'
+import { TipoToggle } from '../tipo-toggle'
+import { celebrarHito } from '@/lib/hitos'
+import { AvisoSaldo } from '../aviso-saldo'
 import {
   Dialog,
   DialogContent,
@@ -15,11 +21,20 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { CATEGORIAS } from '../categorias'
 
-export function MovimientoForm({ proyectoId }: { proyectoId: string }) {
+const ATAJOS = [10, 20, 50, 100]
+
+export function MovimientoForm({
+  proyectoId,
+  nombreProyecto,
+  balance,
+  objetivo,
+}: {
+  proyectoId: string
+  nombreProyecto: string
+  balance: number
+  objetivo: number | null
+}) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'ingreso' | 'retiro'>('ingreso')
   const [monto, setMonto] = useState('')
@@ -32,9 +47,14 @@ export function MovimientoForm({ proyectoId }: { proyectoId: string }) {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const categorias = useCategorias()
   const router = useRouter()
   const supabase = createClient()
-  
+
+  function sumarAtajo(cantidad: number) {
+    const actual = parseFloat(monto) || 0
+    setMonto((actual + cantidad).toFixed(2))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -69,15 +89,22 @@ export function MovimientoForm({ proyectoId }: { proyectoId: string }) {
 
     setMonto('')
     setNota('')
+    setCategoria('')
     setOpen(false)
     setLoading(false)
     toast.success('Movimiento guardado')
     router.refresh()
+
+    if (tipo === 'ingreso') {
+      const cantidad = parseFloat(monto)
+      celebrarHito(nombreProyecto, balance, balance + cantidad, objetivo)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center justify-center bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90">
+      <DialogTrigger className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+        <Plus className="size-4" aria-hidden />
         Nuevo movimiento
       </DialogTrigger>
       <DialogContent>
@@ -87,40 +114,45 @@ export function MovimientoForm({ proyectoId }: { proyectoId: string }) {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setTipo('ingreso')}
-              className={`flex-1 border py-2 text-sm transition-colors ${
-                tipo === 'ingreso'
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Ingreso
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipo('retiro')}
-              className={`flex-1 border py-2 text-sm transition-colors ${
-                tipo === 'retiro'
-                  ? 'border-destructive bg-destructive text-white'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Retiro
-            </button>
-          </div>
+          <TipoToggle value={tipo} onChange={setTipo} />
           <div className="space-y-2">
             <Label htmlFor="monto">Monto</Label>
             <Input
               id="monto"
               type="number"
               step="0.01"
+              min="0.01"
+              inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               required
             />
+            {tipo === 'retiro' && (
+              <AvisoSaldo
+                nombre={nombreProyecto}
+                saldo={balance}
+                retiro={parseFloat(monto) || 0}
+              />
+            )}
+            <div className="flex gap-2">
+              {ATAJOS.map((cantidad) => (
+                <button
+                  key={cantidad}
+                  type="button"
+                  onClick={() => sumarAtajo(cantidad)}
+                  className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground tabular-nums transition-colors hover:border-foreground/30 hover:text-foreground"
+                >
+                  +{cantidad}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setMonto('')}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+              >
+                Limpiar
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="fecha">Fecha</Label>
@@ -138,10 +170,10 @@ export function MovimientoForm({ proyectoId }: { proyectoId: string }) {
               id="categoria"
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="w-full border border-border bg-background px-3 py-2 text-sm"
+              className="field-select"
             >
               <option value="">Sin categoría</option>
-              {CATEGORIAS.map((c) => (
+              {categorias.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -156,7 +188,11 @@ export function MovimientoForm({ proyectoId }: { proyectoId: string }) {
               onChange={(e) => setNota(e.target.value)}
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={loading} className="w-full">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

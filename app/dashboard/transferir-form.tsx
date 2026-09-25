@@ -14,22 +14,37 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2 } from 'lucide-react'
+import { ArrowLeftRight, Loader2 } from 'lucide-react'
+import { formatEUR } from '@/lib/format'
+import { celebrarHito } from '@/lib/hitos'
+import { useAbrirDesdeUrl } from './use-abrir-desde-url'
 import { toast } from 'sonner'
+import { insertarVinculados } from '@/lib/movimientos'
+import { AvisoSaldo } from './aviso-saldo'
 
-
-type Opcion = { id: string; nombre: string }
+// balance y monto_objetivo son opcionales: si llegan, se celebran los hitos del destino
+type Opcion = {
+  id: string
+  nombre: string
+  balance?: number
+  monto_objetivo?: number | null
+}
 
 export function TransferirForm({
   proyectos,
   defaultOrigen = 'general',
   defaultDestino = 'general',
+  abrirAlInicio,
+  saldos,
 }: {
   proyectos: Opcion[]
+  /** Saldo actual por id ('general' para el saldo general), para avisar de negativos */
+  saldos?: Record<string, number>
   defaultOrigen?: string
   defaultDestino?: string
+  abrirAlInicio?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useAbrirDesdeUrl(abrirAlInicio)
   const [origen, setOrigen] = useState(defaultOrigen)
   const [destino, setDestino] = useState(defaultDestino)
   const [monto, setMonto] = useState('')
@@ -74,29 +89,31 @@ export function TransferirForm({
       return
     }
 
-    const { data: insertados, error: insertError } = await supabase
-      .from('movimientos')
-      .insert([
-        {
-          proyecto_id: origen === 'general' ? null : origen,
-          usuario_id: user.id,
-          tipo: 'retiro',
-          monto: cantidad,
-          nota: nota
-            ? `Transferencia a ${label(destino)}: ${nota}`
-            : `Transferencia a ${label(destino)}`,
-        },
-        {
-          proyecto_id: destino === 'general' ? null : destino,
-          usuario_id: user.id,
-          tipo: 'ingreso',
-          monto: cantidad,
-          nota: nota
-            ? `Transferencia desde ${label(origen)}: ${nota}`
-            : `Transferencia desde ${label(origen)}`,
-        },
-      ])
-      .select('id')
+    const { data: insertados, error: insertError } = await insertarVinculados(
+      supabase,
+      [
+        [
+          {
+            proyecto_id: origen === 'general' ? null : origen,
+            usuario_id: user.id,
+            tipo: 'retiro',
+            monto: cantidad,
+            nota: nota
+              ? `Transferencia a ${label(destino)}: ${nota}`
+              : `Transferencia a ${label(destino)}`,
+          },
+          {
+            proyecto_id: destino === 'general' ? null : destino,
+            usuario_id: user.id,
+            tipo: 'ingreso',
+            monto: cantidad,
+            nota: nota
+              ? `Transferencia desde ${label(origen)}: ${nota}`
+              : `Transferencia desde ${label(origen)}`,
+          },
+        ],
+      ]
+    )
 
     if (insertError) {
       setError(insertError.message)
@@ -113,7 +130,7 @@ export function TransferirForm({
     router.refresh()
 
     toast.success(
-      `Transferidos ${cantidad.toFixed(2)} € de ${label(origen)} a ${label(destino)}`,
+      `Transferidos ${formatEUR(cantidad)} de ${label(origen)} a ${label(destino)}`,
       {
         action: {
           label: 'Deshacer',
@@ -125,11 +142,22 @@ export function TransferirForm({
         },
       }
     )
+
+    const destinoInfo = opciones.find((o) => o.id === destino)
+    if (destinoInfo?.balance !== undefined) {
+      celebrarHito(
+        destinoInfo.nombre,
+        destinoInfo.balance,
+        destinoInfo.balance + cantidad,
+        destinoInfo.monto_objetivo
+      )
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="text-sm text-primary hover:underline">
+      <DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-sm font-medium transition-colors hover:border-foreground/30 hover:bg-muted">
+        <ArrowLeftRight className="size-4" aria-hidden />
         Transferir
       </DialogTrigger>
       <DialogContent>
@@ -145,7 +173,7 @@ export function TransferirForm({
               id="origen"
               value={origen}
               onChange={(e) => setOrigen(e.target.value)}
-              className="w-full border border-border bg-background px-3 py-2 text-sm"
+              className="field-select"
             >
               {opciones.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -160,7 +188,7 @@ export function TransferirForm({
               id="destino"
               value={destino}
               onChange={(e) => setDestino(e.target.value)}
-              className="w-full border border-border bg-background px-3 py-2 text-sm"
+              className="field-select"
             >
               {opciones.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -175,9 +203,16 @@ export function TransferirForm({
               id="monto-transfer"
               type="number"
               step="0.01"
+              min="0.01"
+              inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               required
+            />
+            <AvisoSaldo
+              nombre={label(origen)}
+              saldo={saldos?.[origen]}
+              retiro={parseFloat(monto) || 0}
             />
           </div>
           <div className="space-y-2">
@@ -188,7 +223,11 @@ export function TransferirForm({
               onChange={(e) => setNota(e.target.value)}
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={loading} className="w-full">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -15,12 +15,21 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import { CATEGORIAS } from './categorias'
+import { useCategorias } from './categorias-context'
+import { TipoToggle } from './tipo-toggle'
+import { useAbrirDesdeUrl } from './use-abrir-desde-url'
+import { AvisoSaldo } from './aviso-saldo'
 
-export function MovimientoGeneralForm() {
-  const [open, setOpen] = useState(false)
+export function MovimientoGeneralForm({
+  abrirAlInicio,
+  saldoGeneral,
+}: {
+  abrirAlInicio?: boolean
+  saldoGeneral?: number
+}) {
+  const [open, setOpen] = useAbrirDesdeUrl(abrirAlInicio)
   const [tipo, setTipo] = useState<'ingreso' | 'retiro'>('ingreso')
   const [monto, setMonto] = useState('')
   const [nota, setNota] = useState('')
@@ -32,6 +41,7 @@ export function MovimientoGeneralForm() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const categorias = useCategorias()
   const router = useRouter()
   const supabase = createClient()
 
@@ -76,8 +86,10 @@ export function MovimientoGeneralForm() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="text-sm text-primary hover:underline">
-        + Añadir saldo general
+      <DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-sm font-medium transition-colors hover:border-foreground/30 hover:bg-muted">
+        <Plus className="size-4" aria-hidden />
+        <span className="sm:hidden">Añadir</span>
+        <span className="hidden sm:inline">Añadir al saldo general</span>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -86,40 +98,26 @@ export function MovimientoGeneralForm() {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setTipo('ingreso')}
-              className={`flex-1 border py-2 text-sm transition-colors ${
-                tipo === 'ingreso'
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Ingreso
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipo('retiro')}
-              className={`flex-1 border py-2 text-sm transition-colors ${
-                tipo === 'retiro'
-                  ? 'border-destructive bg-destructive text-white'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Retiro
-            </button>
-          </div>
+          <TipoToggle value={tipo} onChange={setTipo} />
           <div className="space-y-2">
             <Label htmlFor="monto-general">Monto</Label>
             <Input
               id="monto-general"
               type="number"
               step="0.01"
+              min="0.01"
+              inputMode="decimal"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               required
             />
+            {tipo === 'retiro' && (
+              <AvisoSaldo
+                nombre="El saldo general"
+                saldo={saldoGeneral}
+                retiro={parseFloat(monto) || 0}
+              />
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="fecha">Fecha</Label>
@@ -137,10 +135,10 @@ export function MovimientoGeneralForm() {
               id="categoria"
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="w-full border border-border bg-background px-3 py-2 text-sm"
+              className="field-select"
             >
               <option value="">Sin categoría</option>
-              {CATEGORIAS.map((c) => (
+              {categorias.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -155,7 +153,11 @@ export function MovimientoGeneralForm() {
               onChange={(e) => setNota(e.target.value)}
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={loading} className="w-full">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

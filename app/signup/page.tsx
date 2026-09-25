@@ -7,15 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
+import { validarContrasena } from '@/lib/validacion'
 
-function validarContrasena(password: string): string | null {
-  if (password.length < 8) {
-    return 'La contraseña debe tener al menos 8 caracteres.'
-  }
-  if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-    return 'La contraseña debe incluir letras y números.'
-  }
-  return null
+// Tras confirmar, /auth/confirm inicia la sesión y lleva al dashboard
+function urlConfirmacion() {
+  return `${window.location.origin}/auth/confirm?next=/dashboard`
 }
 
 export default function SignupPage() {
@@ -48,6 +44,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: { emailRedirectTo: urlConfirmacion() },
     })
 
     if (error) {
@@ -62,15 +59,19 @@ export default function SignupPage() {
 
   async function handleResend() {
     setResending(true)
-    await supabase.auth.resend({ type: 'signup', email })
+    await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: urlConfirmacion() },
+    })
     setResending(false)
   }
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-6">
-        <div className="w-full max-w-sm text-center">
-          <p className="font-display text-3xl">Revisa tu email</p>
+      <div className="flex min-h-dvh items-center justify-center bg-background px-6 py-12">
+        <div className="animate-fade-in-up w-full max-w-sm text-center">
+          <h1 className="font-display text-4xl font-medium tracking-tight">Revisa tu email</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             Te hemos enviado un enlace de confirmación a{' '}
             <span className="font-medium text-foreground">{email}</span>.
@@ -98,19 +99,21 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-sm">
-        <p className="font-display text-3xl">Crear cuenta</p>
+    <div className="flex min-h-dvh items-center justify-center bg-background px-6 py-12">
+      <div className="animate-fade-in-up w-full max-w-sm">
+        <h1 className="font-display text-4xl font-medium tracking-tight">Crear cuenta</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Empieza a ahorrar por proyectos.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <form onSubmit={handleSubmit} className="mt-10 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
+              autoComplete="email"
+              className="h-10"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -121,6 +124,8 @@ export default function SignupPage() {
             <Input
               id="password"
               type="password"
+              autoComplete="new-password"
+              className="h-10"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -134,14 +139,20 @@ export default function SignupPage() {
             <Input
               id="confirmPassword"
               type="password"
+              autoComplete="new-password"
+              className="h-10"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <div className="flex flex-col gap-2 pt-2">
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="h-10">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Crear cuenta
             </Button>

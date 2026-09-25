@@ -15,12 +15,13 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { hoyISO } from '@/lib/format'
+import type { Proyecto as ProyectoCompleto } from '@/lib/tipos'
 
-type Proyecto = {
-  proyecto_id: string
-  nombre: string
-  monto_objetivo: number | null
-}
+type Proyecto = Pick<
+  ProyectoCompleto,
+  'proyecto_id' | 'nombre' | 'monto_objetivo' | 'fecha_objetivo'
+>
 
 export function EditarProyectoForm({
   proyecto,
@@ -35,6 +36,11 @@ export function EditarProyectoForm({
   const [objetivo, setObjetivo] = useState(
     proyecto.monto_objetivo?.toString() ?? ''
   )
+  const [fechaObjetivo, setFechaObjetivo] = useState(
+    proyecto.fecha_objetivo ?? ''
+  )
+  // La columna solo existe tras la migración; si no está, no se envía
+  const hayColumnaFecha = proyecto.fecha_objetivo !== undefined
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -50,6 +56,9 @@ export function EditarProyectoForm({
       .update({
         nombre,
         monto_objetivo: objetivo ? parseFloat(objetivo) : null,
+        ...(hayColumnaFecha || fechaObjetivo
+          ? { fecha_objetivo: objetivo && fechaObjetivo ? fechaObjetivo : null }
+          : {}),
       })
       .eq('id', proyecto.proyecto_id)
 
@@ -89,11 +98,29 @@ export function EditarProyectoForm({
               id="edit-objetivo"
               type="number"
               step="0.01"
+              min="0.01"
+              inputMode="decimal"
               value={objetivo}
               onChange={(e) => setObjetivo(e.target.value)}
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {objetivo && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-fecha-objetivo">¿Para cuándo? (opcional)</Label>
+              <Input
+                id="edit-fecha-objetivo"
+                type="date"
+                min={hoyISO()}
+                value={fechaObjetivo}
+                onChange={(e) => setFechaObjetivo(e.target.value)}
+              />
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="submit" disabled={loading} className="w-full">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

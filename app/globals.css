@@ -44,6 +44,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: #F7F5F0;
   --foreground: #1C2321;
   --card: #FFFFFF;
@@ -79,37 +80,38 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #1C2321;
   --foreground: #F7F5F0;
   --card: #232B28;
   --card-foreground: #F7F5F0;
   --popover: #232B28;
   --popover-foreground: #F7F5F0;
-  --primary: #2E8B69;
-  --primary-foreground: #F7F5F0;
+  --primary: #4CB38A;
+  --primary-foreground: #0F1F18;
   --secondary: #2C332F;
   --secondary-foreground: #F7F5F0;
   --muted: #2C332F;
   --muted-foreground: #A8A296;
   --accent: #D9B441;
   --accent-foreground: #1C2321;
-  --destructive: #C96248;
+  --destructive: #E6826A;
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
-  --ring: #2E8B69;
-  --chart-1: #2E8B69;
+  --ring: #4CB38A;
+  --chart-1: #4CB38A;
   --chart-2: #D9B441;
-  --chart-3: #C96248;
+  --chart-3: #E6826A;
   --chart-4: #A8A296;
   --chart-5: #F7F5F0;
   --sidebar: #232B28;
   --sidebar-foreground: #F7F5F0;
-  --sidebar-primary: #2E8B69;
-  --sidebar-primary-foreground: #F7F5F0;
+  --sidebar-primary: #4CB38A;
+  --sidebar-primary-foreground: #0F1F18;
   --sidebar-accent: #2C332F;
   --sidebar-accent-foreground: #F7F5F0;
   --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #2E8B69;
+  --sidebar-ring: #4CB38A;
 }
 
 @layer base {
@@ -118,5 +120,103 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
+    caret-color: var(--primary);
+    scrollbar-color: var(--border) transparent;
   }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 18%, transparent);
+    color: var(--foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  input[type='date'],
+  input[type='datetime-local'] {
+    accent-color: var(--primary);
+  }
+}
+
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer components {
+  /* Selects nativos con el mismo aspecto que <Input /> */
+  .field-select {
+    @apply h-9 w-full appearance-none rounded-lg border border-input bg-transparent pr-8 pl-3 text-sm text-foreground transition-colors outline-none hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236B6558' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+  }
+  .dark .field-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23A8A296' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  /* Botones de icono discretos (editar, borrar, duplicar) */
+  .icon-action {
+    @apply inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50;
+  }
+  .icon-action-danger {
+    @apply hover:bg-destructive/10 hover:text-destructive;
+  }
+
+  /* Toggle segmentado (Ingreso / Retiro, filtros) */
+  .segment {
+    @apply rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground;
+  }
+  .segment[aria-pressed='true'] {
+    @apply border-primary bg-primary text-primary-foreground;
+  }
+  .segment-danger[aria-pressed='true'] {
+    @apply border-destructive bg-destructive text-background;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s var(--ease-out-expo) both;
+}
+
+/* Misma entrada, pensada para listas con animation-delay escalonado */
+.animate-fade-in-stagger {
+  animation: fade-in-up 0.55s var(--ease-out-expo) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Sin flechas en los campos numéricos: los importes se teclean */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

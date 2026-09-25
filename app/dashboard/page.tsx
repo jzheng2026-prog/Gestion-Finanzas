@@ -1,153 +1,148 @@
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { ProyectoForm } from './proyecto-form'
-import { ProyectoCard } from './proyecto-card'
-import { MovimientoGeneralForm } from './movimiento-general-form'
-import { TransferirForm } from './transferir-form'
+import { inicioDeMes, nombreMes } from '@/lib/format'
+import { consultaHistorial, FILTROS_VACIOS } from '@/lib/historial'
+import { todasLasFilas } from '@/lib/todas-las-filas'
+import type { Movimiento, Proyecto } from '@/lib/tipos'
+import type { GastoCategoria } from './gastos-categoria'
+import { DashboardVista, type Accion } from './dashboard-vista'
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export const metadata = { title: 'Inicio' }
 
-  if (!user) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ accion?: string }>
+}) {
+  const headersList = await headers()
+  const userId = headersList.get('x-user-id')
+  const userEmail = headersList.get('x-user-email')
+
+  if (!userId) {
     redirect('/login')
   }
 
-  const { data: proyectos } = await supabase
-    .from('balance_por_proyecto')
-    .select('*')
+  const { accion } = (await searchParams) as { accion?: Accion }
+  const supabase = await createClient()
 
-  const { data: totalData } = await supabase
-    .from('total_general')
-    .select('total')
-    .single()
+  const inicioMesActual = inicioDeMes(0)
+  const inicioMesAnterior = inicioDeMes(1)
 
-  const { data: movimientosGenerales } = await supabase
-    .from('movimientos')
-    .select('*')
-    .is('proyecto_id', null)
-    .order('fecha', { ascending: false })
+  const resultados = await Promise.all([
+    supabase.from('balance_por_proyecto').select('*'),
+    // '*' y no columnas concretas: fecha_objetivo y archivado_en pueden no
+    // existir todavía si falta la migración
+    supabase.from('proyectos').select('*'),
+    supabase.from('total_general').select('total').single(),
+    consultaHistorial(supabase, null, FILTROS_VACIOS),
+    // Por bloques: Supabase no devuelve más de 1.000 filas por petición
+    todasLasFilas<{ tipo: 'ingreso' | 'retiro'; monto: number; fecha: string; categoria: string | null }>(
+      (desde, hasta) =>
+        supabase
+          .from('movimientos')
+          .select('tipo, monto, fecha, categoria')
+          .eq('usuario_id', userId)
+          .gte('fecha', inicioMesAnterior.toISOString())
+          .order('id')
+          .range(desde, hasta)
+    ),
+    // Evolución del total: todos los movimientos, solo lo imprescindible
+    todasLasFilas<{ tipo: 'ingreso' | 'retiro'; monto: number; fecha: string }>(
+      (desde, hasta) =>
+        supabase
+          .from('movimientos')
+          .select('fecha, tipo, monto')
+          .order('fecha', { ascending: false })
+          .order('id')
+          .range(desde, hasta)
+    ),
+  ])
 
-  const saldoGeneral = (movimientosGenerales ?? []).reduce(
-    (acc, m) => acc + (m.tipo === 'ingreso' ? m.monto : -m.monto),
-    0
+  // Mejor mostrar un error que un "0,00 €" que parezca real
+  const fallo = resultados.find((r) => r.error)
+  if (fallo?.error) {
+    throw new Error(fallo.error.message)
+  }
+
+  const [
+    { data: balances },
+    { data: filasProyectos },
+    { data: totalData },
+    { data: primeraPaginaGenerales, count: totalGenerales },
+    { data: movimientosDelPeriodo },
+    { data: serieTotal },
+  ] = resultados
+
+  // Vista de balances + columnas extra de la tabla
+  const extras = new Map(
+    (filasProyectos ?? []).map((p) => [p.id as string, p])
+  )
+  const proyectos: Proyecto[] = (balances ?? []).map((b) => {
+    const extra = extras.get(b.proyecto_id)
+    return {
+      ...b,
+      ...(extra && 'fecha_objetivo' in extra
+        ? { fecha_objetivo: extra.fecha_objetivo }
+        : {}),
+      ...(extra && 'archivado_en' in extra
+        ? { archivado_en: extra.archivado_en }
+        : {}),
+      ...(extra && 'created_at' in extra ? { creado_en: extra.created_at } : {}),
+    }
+  })
+  const activos = proyectos.filter((p) => !p.archivado_en)
+  const archivados = proyectos.filter((p) => p.archivado_en)
+
+  // Lo que no está en ningún proyecto (incluidos los archivados) es saldo general
+  const total = totalData?.total ?? 0
+  const saldoGeneral =
+    total - proyectos.reduce((acc, p) => acc + p.balance, 0)
+
+  let netoMesActual = 0
+  let netoMesAnterior = 0
+  const gastosPorCategoria = new Map<string, GastoCategoria>()
+  for (const m of movimientosDelPeriodo ?? []) {
+    const esMesActual = new Date(m.fecha) >= inicioMesActual
+    const signo = m.tipo === 'ingreso' ? 1 : -1
+    if (esMesActual) {
+      netoMesActual += signo * m.monto
+    } else {
+      netoMesAnterior += signo * m.monto
+    }
+
+    // Las transferencias y repartos no llevan categoría: no cuentan como gasto
+    if (m.tipo === 'retiro' && m.categoria) {
+      const g = gastosPorCategoria.get(m.categoria) ?? {
+        categoria: m.categoria,
+        actual: 0,
+        anterior: 0,
+      }
+      if (esMesActual) g.actual += m.monto
+      else g.anterior += m.monto
+      gastosPorCategoria.set(m.categoria, g)
+    }
+  }
+  const gastos = [...gastosPorCategoria.values()].sort(
+    (a, b) => b.actual - a.actual || b.anterior - a.anterior
   )
 
-  async function signOut() {
-    'use server'
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-    redirect('/login')
-  }
-
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      <div className="mb-10 flex items-start justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
-          <p className="mt-1 font-display text-lg text-muted-foreground">
-            Total general
-          </p>
-          <p className="font-display text-6xl font-medium tabular-nums">
-            {(totalData?.total ?? 0).toFixed(2)}
-            <span className="text-3xl text-muted-foreground"> €</span>
-          </p>
-          <div className="mt-2 flex gap-4">
-            <MovimientoGeneralForm />
-            <TransferirForm
-              proyectos={
-                proyectos?.map((p) => ({
-                  id: p.proyecto_id,
-                  nombre: p.nombre,
-                })) ?? []
-              }
-            />
-          </div>
-        </div>
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" size="sm">
-            Cerrar sesión
-          </Button>
-        </form>
-      </div>
-
-      <div className="mb-10 border border-border p-5">
-        <p className="mb-3 text-sm text-muted-foreground">Desglose</p>
-        <div className="divide-y divide-border">
-          <div className="flex items-center justify-between py-2">
-            <p className="text-sm">Saldo general</p>
-            <p className="text-sm font-medium tabular-nums">
-              {saldoGeneral.toFixed(2)} €
-            </p>
-          </div>
-          {proyectos?.map((p) => (
-            <div key={p.proyecto_id} className="flex items-center justify-between py-2">
-              <p className="text-sm">{p.nombre}</p>
-              <p className="text-sm font-medium tabular-nums">
-                {p.balance.toFixed(2)} €
-              </p>
-            </div>
-          ))}
-          <div className="flex items-center justify-between pt-3">
-            <p className="text-sm font-medium">Total</p>
-            <p className="font-display text-lg tabular-nums">
-              {(totalData?.total ?? 0).toFixed(2)} €
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
-        <h2 className="font-display text-xl">Tus proyectos</h2>
-        <ProyectoForm />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {proyectos?.map((p) => (
-          <ProyectoCard key={p.proyecto_id} proyecto={p} />
-        ))}
-        {proyectos?.length === 0 && (
-          <p className="text-muted-foreground">
-            Aún no tienes proyectos. Crea el primero para empezar a ahorrar.
-          </p>
-        )}
-      </div>
-
-      {movimientosGenerales && movimientosGenerales.length > 0 && (
-        <div className="mt-10">
-          <h2 className="mb-4 border-b border-border pb-3 font-display text-xl">
-            Movimientos generales
-          </h2>
-          <div className="divide-y divide-border">
-            {movimientosGenerales.map((m) => (
-              <div key={m.id} className="flex items-center justify-between py-4">
-                <div>
-                  <p className="text-sm font-medium">
-                    {m.tipo === 'ingreso' ? 'Ingreso' : 'Retiro'}
-                  </p>
-                  {m.nota && (
-                    <p className="text-sm text-muted-foreground">{m.nota}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(m.fecha).toLocaleString('es-ES')}
-                  </p>
-                </div>
-                <p
-                  className={`font-display text-xl tabular-nums ${
-                    m.tipo === 'ingreso' ? 'text-primary' : 'text-destructive'
-                  }`}
-                >
-                  {m.tipo === 'ingreso' ? '+' : '−'}
-                  {m.monto.toFixed(2)} €
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <DashboardVista
+      userEmail={userEmail}
+      total={total}
+      saldoGeneral={saldoGeneral}
+      netoMesActual={netoMesActual}
+      netoMesAnterior={netoMesAnterior}
+      activos={activos}
+      archivados={archivados}
+      gastos={gastos}
+      mesActual={nombreMes(inicioMesActual)}
+      mesAnterior={nombreMes(inicioMesAnterior)}
+      movimientosGenerales={(primeraPaginaGenerales ?? []) as Movimiento[]}
+      totalGenerales={totalGenerales ?? 0}
+      serieTotal={serieTotal ?? []}
+      accion={accion}
+    />
   )
 }

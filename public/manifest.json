@@ -1,23 +1,42 @@
 {
+  "id": "/dashboard",
   "name": "Finanzas",
   "short_name": "Finanzas",
   "description": "Ahorra por proyectos personales",
+  "lang": "es",
   "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#F7F5F0",
   "theme_color": "#1F6F54",
   "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "name": "Nuevo movimiento",
+      "short_name": "Movimiento",
+      "description": "Añadir un ingreso o retiro al saldo general",
+      "url": "/dashboard?accion=movimiento",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
+      "name": "Repartir saldo",
+      "short_name": "Repartir",
+      "description": "Repartir el saldo general entre tus proyectos",
+      "url": "/dashboard?accion=repartir",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Transferir",
+      "short_name": "Transferir",
+      "description": "Mover dinero entre proyectos",
+      "url": "/dashboard?accion=transferir",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
