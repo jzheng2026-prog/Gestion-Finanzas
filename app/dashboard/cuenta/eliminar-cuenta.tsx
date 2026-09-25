@@ -73,8 +73,9 @@ export function EliminarCuenta({ email }: { email: string }) {
               ¿Eliminar tu cuenta?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Se borrarán tu cuenta, tus proyectos y todo tu historial. No se
-              puede deshacer.
+              Se borrarán tu cuenta, tus proyectos y todo tu historial. Los
+              proyectos que creaste y compartes desaparecerán también para las
+              demás personas. No se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">

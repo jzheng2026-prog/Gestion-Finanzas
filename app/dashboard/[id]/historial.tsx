@@ -37,6 +37,8 @@ export function Historial({
   filtrosIniciales = FILTROS_VACIOS,
   nombresProyectos,
   autoFocusBusqueda = false,
+  miUsuarioId,
+  autores,
 }: {
   /** Id de proyecto, null (saldo general) o TODOS (búsqueda global) */
   proyectoId: Ambito
@@ -50,6 +52,9 @@ export function Historial({
   /** Para mostrar a qué proyecto pertenece cada movimiento (búsqueda global) */
   nombresProyectos?: Record<string, string>
   autoFocusBusqueda?: boolean
+  /** En proyectos compartidos: para marcar autor y bloquear lo ajeno */
+  miUsuarioId?: string
+  autores?: Record<string, string>
 }) {
   const [filtros, setFiltros] = useState<FiltrosHistorial>(filtrosIniciales)
   const claveInicial = claveDe(filtrosIniciales)
@@ -283,6 +288,12 @@ export function Historial({
                       : 'Saldo general'
                     : undefined
                 }
+                autor={
+                  miUsuarioId && m.usuario_id && m.usuario_id !== miUsuarioId
+                    ? (autores?.[m.usuario_id] ?? 'Antiguo miembro')
+                    : undefined
+                }
+                editable={!miUsuarioId || !m.usuario_id || m.usuario_id === miUsuarioId}
               />
             ))}
           </ul>

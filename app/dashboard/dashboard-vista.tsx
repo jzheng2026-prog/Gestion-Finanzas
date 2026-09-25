@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Search, UserRound } from 'lucide-react'
 import { formatEUR, formatImporte } from '@/lib/format'
-import type { Movimiento, Proyecto } from '@/lib/tipos'
+import { esCompartido, miParte, type Movimiento, type Proyecto } from '@/lib/tipos'
 import { ProyectoForm } from './proyecto-form'
 import { ProyectosLista } from './proyectos-lista'
 import { ProyectosArchivados } from './proyectos-archivados'
@@ -54,7 +54,7 @@ export function DashboardVista({
   serieTotal,
   accion,
 }: DashboardDatos) {
-  const balanceArchivados = archivados.reduce((acc, p) => acc + p.balance, 0)
+  const balanceArchivados = archivados.reduce((acc, p) => acc + miParte(p), 0)
   const saldos: Record<string, number> = {
     general: saldoGeneral,
     ...Object.fromEntries(activos.map((p) => [p.proyecto_id, p.balance])),
@@ -154,13 +154,20 @@ export function DashboardVista({
                   key={p.proyecto_id}
                   className="flex items-baseline justify-between gap-4 py-2.5"
                 >
-                  <dt className="min-w-0 truncate text-sm">{p.nombre}</dt>
+                  <dt className="flex min-w-0 items-center gap-1.5 text-sm">
+                    <span className="truncate">{p.nombre}</span>
+                    {esCompartido(p) && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        (tu parte)
+                      </span>
+                    )}
+                  </dt>
                   <dd
                     className={`shrink-0 text-sm font-medium whitespace-nowrap tabular-nums ${
-                      p.balance < 0 ? 'text-destructive' : ''
+                      miParte(p) < 0 ? 'text-destructive' : ''
                     }`}
                   >
-                    {formatEUR(p.balance)}
+                    {formatEUR(miParte(p))}
                   </dd>
                 </div>
               ))}

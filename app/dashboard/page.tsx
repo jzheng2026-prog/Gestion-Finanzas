@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { inicioDeMes, nombreMes } from '@/lib/format'
 import { consultaHistorial, FILTROS_VACIOS } from '@/lib/historial'
 import { todasLasFilas } from '@/lib/todas-las-filas'
-import type { Movimiento, Proyecto } from '@/lib/tipos'
+import { miParte, type Movimiento, type Proyecto } from '@/lib/tipos'
 import type { GastoCategoria } from './gastos-categoria'
 import { DashboardVista, type Accion } from './dashboard-vista'
 
@@ -53,6 +53,8 @@ export default async function DashboardPage({
         supabase
           .from('movimientos')
           .select('fecha, tipo, monto')
+          // Solo los tuyos: en proyectos compartidos también se ven los de otros
+          .eq('usuario_id', userId)
           .order('fecha', { ascending: false })
           .order('id')
           .range(desde, hasta)
@@ -88,16 +90,20 @@ export default async function DashboardPage({
       ...(extra && 'archivado_en' in extra
         ? { archivado_en: extra.archivado_en }
         : {}),
-      ...(extra && 'created_at' in extra ? { creado_en: extra.created_at } : {}),
+      ...(extra && 'fecha_creacion' in extra
+        ? { creado_en: extra.fecha_creacion }
+        : {}),
+      soy_propietario: !b.propietario_id || b.propietario_id === userId,
     }
   })
   const activos = proyectos.filter((p) => !p.archivado_en)
   const archivados = proyectos.filter((p) => p.archivado_en)
 
-  // Lo que no está en ningún proyecto (incluidos los archivados) es saldo general
+  // Tu dinero que no está en ningún proyecto (incluidos los archivados) es
+  // saldo general. En los compartidos solo cuenta tu parte.
   const total = totalData?.total ?? 0
   const saldoGeneral =
-    total - proyectos.reduce((acc, p) => acc + p.balance, 0)
+    total - proyectos.reduce((acc, p) => acc + miParte(p), 0)
 
   let netoMesActual = 0
   let netoMesAnterior = 0

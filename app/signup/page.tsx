@@ -8,10 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { validarContrasena } from '@/lib/validacion'
+import { rutaSegura } from '@/lib/ruta-segura'
 
 // Tras confirmar, /auth/confirm inicia la sesión y lleva al dashboard
 function urlConfirmacion() {
-  return `${window.location.origin}/auth/confirm?next=/dashboard`
+  // Si viene de una invitación (?next=/invitacion/…), vuelve allí al confirmar
+  const next = rutaSegura(new URLSearchParams(window.location.search).get('next'))
+  return `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`
 }
 
 export default function SignupPage() {

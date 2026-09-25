@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { rutaSegura } from './lib/ruta-segura'
 
 // Solo para quien no ha iniciado sesión: si ya la tiene, se le lleva al dashboard
 const RUTAS_ANONIMAS = ['/login', '/signup', '/recuperar']
@@ -50,9 +51,16 @@ export async function proxy(request: NextRequest) {
   let response: NextResponse
 
   if (!user && !esRutaPublica) {
-    response = NextResponse.redirect(new URL('/login', request.url))
+    // Recordar a dónde iba (p. ej. un enlace de invitación) para volver tras entrar
+    const login = new URL('/login', request.url)
+    if (pathname !== '/' && pathname !== '/dashboard') {
+      login.searchParams.set('next', pathname + request.nextUrl.search)
+    }
+    response = NextResponse.redirect(login)
   } else if (user && esRutaAnonima) {
-    response = NextResponse.redirect(new URL('/dashboard', request.url))
+    response = NextResponse.redirect(
+      new URL(rutaSegura(request.nextUrl.searchParams.get('next')), request.url)
+    )
   } else {
     // Las páginas leen la identidad de estos headers en vez de volver a
     // llamar a getUser(). Se sobrescriben siempre para que el cliente no

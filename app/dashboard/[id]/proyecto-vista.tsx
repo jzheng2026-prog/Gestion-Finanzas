@@ -1,14 +1,15 @@
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { formatEUR, formatImporte } from '@/lib/format'
+import { ArrowLeft, Users } from 'lucide-react'
+import { formatEUR, formatImporte, nombreCorto } from '@/lib/format'
 import { formatMesAnio, planAhorro } from '@/lib/objetivo'
-import type { Movimiento } from '@/lib/tipos'
+import type { Miembro, Movimiento } from '@/lib/tipos'
 import { MovimientoForm } from './movimiento-form'
 import { TransferirForm } from '../transferir-form'
 import { Historial } from './historial'
 import { BalanceChart } from './balance-chart'
 import { BannerArchivado } from './banner-archivado'
 import { LineaRitmo } from '../linea-ritmo'
+import { CompartirProyecto } from './compartir-proyecto'
 
 export type ProyectoDatos = {
   id: string
@@ -17,7 +18,7 @@ export type ProyectoDatos = {
     monto_objetivo: number | null
     fecha_objetivo?: string | null
     archivado_en?: string | null
-    created_at?: string | null
+    fecha_creacion?: string | null
   }
   balance: number
   /** Primera página del historial */
@@ -31,6 +32,12 @@ export type ProyectoDatos = {
     balance?: number
     monto_objetivo?: number | null
   }[]
+  /** Tu aportación (solo tras la migración de compartidos) */
+  miAporte?: number
+  /** null = sin la migración de compartidos: no se muestra Compartir */
+  miembros?: Miembro[] | null
+  miUsuarioId?: string
+  soyPropietario?: boolean
 }
 
 /** Presentación de un proyecto, separada de la carga de datos (ver page.tsx) */
@@ -42,7 +49,16 @@ export function ProyectoVista({
   totalMovimientos,
   serie,
   opcionesTransferencia,
+  miAporte,
+  miembros = null,
+  miUsuarioId,
+  soyPropietario = true,
 }: ProyectoDatos) {
+  const compartido = (miembros?.length ?? 0) > 1
+  // Quién hizo cada movimiento, para el historial de un proyecto compartido
+  const autores = compartido
+    ? Object.fromEntries(miembros!.map((m) => [m.usuario_id, nombreCorto(m.email)]))
+    : undefined
   const objetivo: number | null = proyecto.monto_objetivo
   const progreso = objetivo
     ? Math.max(Math.min((balance / objetivo) * 100, 100), 0)
@@ -69,6 +85,19 @@ export function ProyectoVista({
               {formatImporte(balance)}
               <span className="text-2xl text-muted-foreground sm:text-4xl"> €</span>
             </p>
+            {compartido && (
+              <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-foreground">
+                  <Users className="size-3.5" aria-hidden />
+                  Bote de {miembros!.length} personas
+                </span>
+                {miAporte !== undefined && (
+                  <span className="tabular-nums">
+                    Tu parte: <span className="font-medium text-foreground">{formatEUR(miAporte)}</span>
+                  </span>
+                )}
+              </p>
+            )}
             {objetivo !== null && progreso !== null && (
               <div className="mt-4 max-w-sm">
                 <div
@@ -109,7 +138,7 @@ export function ProyectoVista({
                   balance={balance}
                   objetivo={objetivo}
                   fechaObjetivo={proyecto.fecha_objetivo}
-                  creadoEn={proyecto.created_at}
+                  creadoEn={proyecto.fecha_creacion}
                 />
               </div>
             )}
@@ -128,12 +157,25 @@ export function ProyectoVista({
                 opcionesTransferencia.map((o) => [o.id, o.balance ?? 0])
               )}
             />
+            {miembros && miUsuarioId && (
+              <CompartirProyecto
+                proyectoId={id}
+                nombreProyecto={proyecto.nombre}
+                miembros={miembros}
+                miUsuarioId={miUsuarioId}
+                soyPropietario={soyPropietario}
+              />
+            )}
           </div>
         </section>
 
         {proyecto.archivado_en && (
           <div className="-mt-6 mb-12">
-            <BannerArchivado id={id} nombre={proyecto.nombre} />
+            <BannerArchivado
+              id={id}
+              nombre={proyecto.nombre}
+              puedeRestaurar={soyPropietario}
+            />
           </div>
         )}
 
@@ -159,6 +201,8 @@ export function ProyectoVista({
             movimientos={movimientos}
             total={totalMovimientos}
             nombreProyecto={proyecto.nombre}
+            miUsuarioId={compartido ? miUsuarioId : undefined}
+            autores={autores}
           />
         </section>
       </main>

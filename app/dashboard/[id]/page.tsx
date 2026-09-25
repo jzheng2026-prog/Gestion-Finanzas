@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { consultaHistorial, FILTROS_VACIOS } from '@/lib/historial'
 import { todasLasFilas } from '@/lib/todas-las-filas'
-import type { Movimiento } from '@/lib/tipos'
+import type { Miembro, Movimiento } from '@/lib/tipos'
 import { ProyectoVista } from './proyecto-vista'
 
 // Compartida por generateMetadata y la página: una sola consulta por petición
@@ -45,9 +45,11 @@ export default async function ProyectoPage({
     { data: primeraPagina, count, error: errorHistorial },
     { data: serie, error: errorSerie },
     { data: todosLosProyectos, error: errorProyectos },
+    { data: miembros, error: errorMiembros },
   ] = await Promise.all([
     getProyecto(id),
-    supabase.from('balance_por_proyecto').select('proyecto_id, balance'),
+    // '*': mi_aporte y num_miembros solo existen tras la migración de compartidos
+    supabase.from('balance_por_proyecto').select('*'),
     consultaHistorial(supabase, id, FILTROS_VACIOS),
     // Para la gráfica: todos los movimientos, pero solo lo imprescindible
     todasLasFilas<{ fecha: string; tipo: 'ingreso' | 'retiro'; monto: number }>(
@@ -62,6 +64,11 @@ export default async function ProyectoPage({
     ),
     // '*' y no columnas concretas: archivado_en puede no existir aún
     supabase.from('proyectos').select('*'),
+    supabase
+      .from('proyecto_miembros')
+      .select('usuario_id, rol, email')
+      .eq('proyecto_id', id)
+      .order('unido_en'),
   ])
 
   if (!proyecto) {
@@ -76,12 +83,18 @@ export default async function ProyectoPage({
   const saldoDe = new Map(
     (balances ?? []).map((b) => [b.proyecto_id as string, b.balance as number])
   )
+  const miFila = (balances ?? []).find((b) => b.proyecto_id === id)
 
   return (
     <ProyectoVista
       id={id}
       proyecto={proyecto}
       balance={saldoDe.get(id) ?? 0}
+      miAporte={miFila?.mi_aporte as number | undefined}
+      // Sin la migración de compartidos no hay tabla de miembros: se oculta Compartir
+      miembros={errorMiembros ? null : ((miembros ?? []) as Miembro[])}
+      miUsuarioId={userId}
+      soyPropietario={!proyecto.usuario_id || proyecto.usuario_id === userId}
       movimientos={(primeraPagina ?? []) as Movimiento[]}
       totalMovimientos={count ?? 0}
       serie={serie ?? []}

@@ -8,9 +8,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
+import { rutaSegura } from '@/lib/ruta-segura'
 
 function AvisoEnlace() {
   const params = useSearchParams()
+
+  if (params.get('next')?.startsWith('/invitacion/')) {
+    return (
+      <p
+        role="status"
+        className="mt-6 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground"
+      >
+        Te han invitado a un proyecto compartido. Inicia sesión o crea una
+        cuenta para unirte.
+      </p>
+    )
+  }
 
   if (params.get('cuenta') === 'eliminada') {
     return (
@@ -32,6 +45,20 @@ function AvisoEnlace() {
       El enlace ha caducado o se abrió en otro navegador. Pide uno nuevo o
       inicia sesión.
     </p>
+  )
+}
+
+// Mantiene ?next= al pasar a registrarse (p. ej. desde una invitación)
+function EnlaceRegistro() {
+  const next = useSearchParams().get('next')
+  return (
+    <Link
+      href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
+      className="rounded-sm text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      ¿No tienes cuenta?{' '}
+      <span className="text-primary underline-offset-4 hover:underline">Crea una</span>
+    </Link>
   )
 }
 
@@ -67,7 +94,9 @@ export default function LoginPage() {
       return
     }
 
-    router.replace('/dashboard')
+    // Volver a donde se iba (p. ej. un enlace de invitación)
+    const next = new URLSearchParams(window.location.search).get('next')
+    router.replace(rutaSegura(next))
     router.refresh()
   }
 
@@ -129,15 +158,9 @@ export default function LoginPage() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Iniciar sesión
             </Button>
-            <Link
-              href="/signup"
-              className="rounded-sm text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              ¿No tienes cuenta?{' '}
-              <span className="text-primary underline-offset-4 hover:underline">
-                Crea una
-              </span>
-            </Link>
+            <Suspense>
+              <EnlaceRegistro />
+            </Suspense>
           </div>
         </form>
       </div>

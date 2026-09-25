@@ -24,10 +24,16 @@ import {
 export function MovimientoItem({
   movimiento,
   etiquetaProyecto,
+  autor,
+  editable = true,
 }: {
   movimiento: Movimiento
   /** Nombre del proyecto, cuando la lista mezcla varios (búsqueda global) */
   etiquetaProyecto?: string
+  /** Quién lo hizo, si no fuiste tú (proyectos compartidos) */
+  autor?: string
+  /** false = movimiento de otra persona: solo lectura */
+  editable?: boolean
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [tipo, setTipo] = useState(movimiento.tipo)
@@ -183,6 +189,9 @@ export function MovimientoItem({
               aria-label="Parte de una transferencia"
             />
           )}
+          {autor && (
+            <span className="truncate font-normal text-muted-foreground">· {autor}</span>
+          )}
           {etiquetaProyecto && (
             <span className="truncate font-normal text-muted-foreground">
               · {etiquetaProyecto}
@@ -219,45 +228,47 @@ export function MovimientoItem({
             movimiento.tipo === 'ingreso' ? movimiento.monto : -movimiento.monto
           )}
         </p>
-        <div className="-mr-2 flex items-center opacity-100 transition-opacity duration-150 sm:mr-0 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-          {!vinculado && (
+        {editable && (
+          <div className="-mr-2 flex items-center opacity-100 transition-opacity duration-150 sm:mr-0 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+            {!vinculado && (
+              <button
+                type="button"
+                onClick={handleDuplicar}
+                disabled={duplicando}
+                className="icon-action"
+                aria-label="Duplicar con la fecha de hoy"
+                title="Duplicar con la fecha de hoy"
+              >
+                {duplicando ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleDuplicar}
-              disabled={duplicando}
+              onClick={() => setEditOpen(true)}
               className="icon-action"
-              aria-label="Duplicar con la fecha de hoy"
-              title="Duplicar con la fecha de hoy"
+              aria-label="Editar movimiento"
+              title="Editar"
             >
-              {duplicando ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Copy className="size-4" />
-              )}
+              <Pencil className="size-4" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            className="icon-action"
-            aria-label="Editar movimiento"
-            title="Editar"
-          >
-            <Pencil className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={borrando}
-            className="icon-action icon-action-danger"
-            aria-label={
-              vinculado ? 'Eliminar la transferencia (las dos mitades)' : 'Eliminar movimiento'
-            }
-            title={vinculado ? 'Eliminar la transferencia' : 'Eliminar'}
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={borrando}
+              className="icon-action icon-action-danger"
+              aria-label={
+                vinculado ? 'Eliminar la transferencia (las dos mitades)' : 'Eliminar movimiento'
+              }
+              title={vinculado ? 'Eliminar la transferencia' : 'Eliminar'}
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

@@ -100,3 +100,8 @@ export function inicioDeMes(mesesAtras = 0, ahora = new Date()) {
 export function hoyISO() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(new Date())
 }
+
+/** Nombre corto para mostrar a una persona: la parte del email antes de la @ */
+export function nombreCorto(email: string | null | undefined) {
+  return email ? email.split('@')[0] : 'Alguien'
+}

@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { Archive, Check, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { Archive, Check, Loader2, Pencil, Trash2, Users } from 'lucide-react'
 import { formatEUR, formatImporte } from '@/lib/format'
 import { formatMesAnio, planAhorro } from '@/lib/objetivo'
-import type { Proyecto } from '@/lib/tipos'
+import { esCompartido, miParte, type Proyecto } from '@/lib/tipos'
 import { EditarProyectoForm } from './editar-proyecto-form'
 import { useArchivar } from './use-archivar'
 import { LineaRitmo } from './linea-ritmo'
@@ -31,8 +31,12 @@ export function ProyectoCard({ proyecto }: { proyecto: Proyecto }) {
   const router = useRouter()
   const supabase = createClient()
 
+  // En un proyecto compartido ajeno solo se añaden movimientos: editarlo,
+  // archivarlo o borrarlo es cosa de quien lo creó
+  const esPropio = proyecto.soy_propietario !== false
+  const compartido = esCompartido(proyecto)
   // Archivar solo está disponible si ya se ejecutó la migración
-  const puedeArchivar = proyecto.archivado_en !== undefined
+  const puedeArchivar = esPropio && proyecto.archivado_en !== undefined
 
   async function handleDelete() {
     setDeleting(true)
@@ -84,41 +88,54 @@ export function ProyectoCard({ proyecto }: { proyecto: Proyecto }) {
             {formatImporte(proyecto.balance)}
             <span className="text-lg text-muted-foreground"> €</span>
           </p>
+          {compartido && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-foreground">
+                <Users className="size-3.5" aria-hidden />
+                Compartido · {proyecto.num_miembros}
+              </span>
+              <span className="tabular-nums">
+                Tu parte: {formatEUR(miParte(proyecto))}
+              </span>
+            </p>
+          )}
         </Link>
-        <div className="relative z-10 -mt-1 -mr-2 flex items-center opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            className="icon-action"
-            aria-label={`Editar ${proyecto.nombre}`}
-            title="Editar"
-          >
-            <Pencil className="size-4" />
-          </button>
-          {puedeArchivar && (
+        {esPropio && (
+          <div className="relative z-10 -mt-1 -mr-2 flex items-center opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
             <button
               type="button"
-              onClick={() =>
-                cambiarArchivo(proyecto.proyecto_id, proyecto.nombre, true)
-              }
-              disabled={archivando}
+              onClick={() => setEditOpen(true)}
               className="icon-action"
-              aria-label={`Archivar ${proyecto.nombre}`}
-              title="Archivar"
+              aria-label={`Editar ${proyecto.nombre}`}
+              title="Editar"
             >
-              <Archive className="size-4" />
+              <Pencil className="size-4" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setDeleteOpen(true)}
-            className="icon-action icon-action-danger"
-            aria-label={`Eliminar ${proyecto.nombre}`}
-            title="Eliminar"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
+            {puedeArchivar && (
+              <button
+                type="button"
+                onClick={() =>
+                  cambiarArchivo(proyecto.proyecto_id, proyecto.nombre, true)
+                }
+                disabled={archivando}
+                className="icon-action"
+                aria-label={`Archivar ${proyecto.nombre}`}
+                title="Archivar"
+              >
+                <Archive className="size-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              className="icon-action icon-action-danger"
+              aria-label={`Eliminar ${proyecto.nombre}`}
+              title="Eliminar"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {objetivoAlcanzado && (
@@ -204,6 +221,8 @@ export function ProyectoCard({ proyecto }: { proyecto: Proyecto }) {
             <AlertDialogDescription>
               Se eliminará el proyecto junto con todo su historial de
               movimientos ({formatEUR(proyecto.balance)} de balance actual).
+              {compartido &&
+                ' Es un proyecto compartido: desaparecerá también para el resto de personas, con sus movimientos.'}
               Esta acción no se puede deshacer.
               {puedeArchivar && ' Si solo quieres quitarlo de la vista, archívalo.'}
             </AlertDialogDescription>

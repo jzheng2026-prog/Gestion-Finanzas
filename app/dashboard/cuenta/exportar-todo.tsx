@@ -16,11 +16,22 @@ export function ExportarTodo() {
 
   async function exportar() {
     setExportando(true)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setExportando(false)
+      toast.error('No hay sesión activa')
+      return
+    }
+
     const [movs, proyectos] = await Promise.all([
       todasLasFilas<Movimiento>((desde, hasta) =>
         supabase
           .from('movimientos')
           .select('*')
+          // Solo los tuyos: en proyectos compartidos también se ven los de otros
+          .eq('usuario_id', user.id)
           .order('fecha', { ascending: false })
           .order('id')
           .range(desde, hasta)
